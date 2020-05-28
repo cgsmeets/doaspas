@@ -181,10 +181,8 @@ class JobResultTemplate1 extends DoaspasBuildResult {
 
         const q: IFQuery = {conn: DoaspasShared.acCon, object: 'SAJ_Analyze_Result__c', field: ['Id'], where: 'SAJ_App_Analyze_Job__c' + '='  + '\'' + this.job.field.AppJobId + '\''};
         const r = await DoaspasShared.acCon.query<IFSAJ_Analyze_Result__c>(await fnBuildSoql(q));
-        console.log ('DELETE:' + await fnBuildSoql(q));
 
         const p = await DoaspasShared.acCon.delete('SAJ_Analyze_Result__c', fnGetAllId(r.records));
-        console.log ('DELETE RES:' + fnGetAllId(r.records));
         return await this.Insert();
     }
 
