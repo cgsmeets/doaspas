@@ -3,6 +3,14 @@ doaspas
 
 Solution for analyzing builds and environments on Salesforce
 
+Instructions:
+Create a Salesforce org (i.e. scratch org) and deploy the objects in this repo:
+https://github.com/cgsmeets/appcentral
+
+Run example: ./bin/run build:analyze -u doaspas -n "Build A"
+
+
+
 [![Version](https://img.shields.io/npm/v/doaspas.svg)](https://npmjs.org/package/doaspas)
 [![CircleCI](https://circleci.com/gh/cgsmeets/doaspas/tree/master.svg?style=shield)](https://circleci.com/gh/cgsmeets/doaspas/tree/master)
 [![Appveyor CI](https://ci.appveyor.com/api/projects/status/github/cgsmeets/doaspas?branch=master&svg=true)](https://ci.appveyor.com/project/heroku/doaspas/branch/master)
