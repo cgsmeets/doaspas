@@ -47,6 +47,9 @@
     "topics": {
       "hello": {
         "description": "Commands to say hello."
+      },
+      "build": {
+        "description": "Commands for Salesforce builds."
       }
     },
     "devPlugins": [
