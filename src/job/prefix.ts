@@ -1,4 +1,4 @@
-import { Connection, SfdxError } from '@salesforce/core';
+import { Connection } from '@salesforce/core';
 import { DoaspasBuildJob } from '../lib/analyze_definition';
 import {  IFJob } from '../lib/analyze_object_definition';
 import JobResultTemplate2 from '../lib/analyze_result_template2';

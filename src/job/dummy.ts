@@ -1,7 +1,7 @@
-import { Connection, SfdxError } from '@salesforce/core';
+import { Connection } from '@salesforce/core';
 import { DoaspasBuildJob } from '../lib/analyze_definition';
-import JobResultTemplate1 from '../lib/analyze_result_template1';
 import { IFJob } from '../lib/analyze_object_definition';
+import JobResultTemplate1 from '../lib/analyze_result_template1';
 
 export default class Dummy extends DoaspasBuildJob {
 

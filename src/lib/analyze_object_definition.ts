@@ -127,7 +127,7 @@ export interface IFSAJ_Analyze_Result__c extends IFSObject {
     SAJ_Report__c?: boolean;
     SAJ_Release_Component__c?: string;
     SAJ_Release__c?: string;
-    SAJ_App_Analyze_Job__c?: string;
+    SAJ_Analyze_Job_Assignment?: string;
     SAJ_Analyze_Job__c?: string;
     SAJ_App__c?: string;
     SAJ_Message__c?: string;

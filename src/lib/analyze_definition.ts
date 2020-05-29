@@ -160,7 +160,7 @@ export abstract class DoaspasBuildResult extends DoaspasResult {
 
     protected setCommonLookupFields(v: IFSAJ_Analyze_Result__c): void {
         v.SAJ_Analyze_Job__c = this.job.field.JobId;
-        v.SAJ_App_Analyze_Job__c = this.job.field.AppJobId;
+        v.SAJ_Analyze_Job_Assignment = this.job.field.AppJobId;
         v.SAJ_Release__c = DoaspasShared.build.Id;
         v.SAJ_App__c = DoaspasShared.build.SAJ_Application__r.Id;
     }
