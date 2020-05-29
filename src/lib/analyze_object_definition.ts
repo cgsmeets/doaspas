@@ -1,28 +1,15 @@
-import { DoaspasBuildJob } from "./analyze_definition";
-import { fnResultSuccess, fnResultErrorMsg } from "./analyze_util";
-import { Connection } from "@salesforce/core";
-import { string } from "@oclif/command/lib/flags";
+import { Connection } from '@salesforce/core';
 
-interface IFSObject {
-    attributes?: IFattributes;
-    Id?: string;
-    Name?: string;
-    createddate?: number;
-    createdby?: string;
-    last_modifiedbydate?: number;
-    last_modifiedby?: string;
-    RecordTypeId?: string;
-}
-interface IFattributes {
-    type: string;
-    url: string;
-}
+// #########################################################################
+// ### Interfaces for passing data between functions
+// #########################################################################
 
-// tslint:disable-next-line: class-name
-export interface IFSAJ_Release__c extends IFSObject {
-
-    SAJ_Application__c: string;
-    SAJ_Application__r: IFSAJ_App__c;
+export enum SEVERITY {
+    INFO = 1,
+    LOW,
+    MEDIUM,
+    HIGH,
+    CRITICAL
 }
 
 export interface IFSummary {
@@ -32,6 +19,69 @@ export interface IFSummary {
     endTime?: number;
     execTime?: number;
     job?: IFJob;
+}
+
+export interface IFJob {
+    AppJobId: string;
+    JobId: string;
+    Name: string;
+    Operation: string;
+}
+
+export interface IFRecordType {
+    Id: string;
+    DeveloperName: string;
+}
+
+export interface IFerror {
+    idx: number;
+    statusCode: string;
+    message: string;
+    fields: [];
+}
+
+export interface IFQuery {
+    conn: Connection;
+    object: string;
+    field?: string[];
+    where?: string;
+    limit?: number;
+    ids?: Set<string>;
+  }
+
+// #########################################################################
+// ### Interfaces for Salesforce API
+// #########################################################################
+
+// ### Salesforce Custom Oject standard fields
+export interface IFSObject {
+    attributes?: IFattributes;
+    Id?: string;
+    Name?: string;
+    createddate?: number;
+    createdby?: string;
+    last_modifiedbydate?: number;
+    last_modifiedby?: string;
+    RecordTypeId?: string;
+}
+
+// ### API query response standard fields
+interface IFattributes {
+    type: string;
+    url: string;
+}
+
+// tslint:disable-next-line: class-name
+export interface IFSAJ_App__c extends IFSObject {
+    SAJ_Project_Dev_Prefix__c: string;
+    SAJ_Project_Allowed_Prefix__c: string;
+}
+
+// tslint:disable-next-line: class-name
+export interface IFSAJ_Release__c extends IFSObject {
+
+    SAJ_Application__c: string;
+    SAJ_Application__r: IFSAJ_App__c;
 }
 
 // tslint:disable-next-line: class-name
@@ -73,7 +123,7 @@ export interface SAJ_Analyze_Job_Summary__c extends IFSObject {
 }
 
 // tslint:disable-next-line: class-name
-interface IFSAJ_Analyze_Result__c extends IFSObject {
+export interface IFSAJ_Analyze_Result__c extends IFSObject {
     SAJ_Report__c?: boolean;
     SAJ_Release_Component__c?: string;
     SAJ_Release__c?: string;
@@ -81,39 +131,6 @@ interface IFSAJ_Analyze_Result__c extends IFSObject {
     SAJ_Analyze_Job__c?: string;
     SAJ_App__c?: string;
     SAJ_Message__c?: string;
-    SAJ_Total_Time__c?: string;
+    SAJ_Exec_Time__c?: number;
+    SAJ_Total_Time__c?: number;
 }
-
-// tslint:disable-next-line: class-name
-interface IFSAJ_App__c extends IFSObject {
-    SAJ_Project_Dev_Prefix__c: string;
-    SAJ_Project_Allowed_Prefix__c: string;
-}
-
-export interface IFJob {
-    AppJobId: string;
-    JobId: string;
-    Name: string;
-    Operation: string;
-}
-interface IFRecordType {
-    Id: string;
-    DeveloperName: string;
-}
-interface IFerror {
-    idx: number;
-    statusCode: string;
-    message: string;
-    fields: [];
-}
-
-export interface IFQuery {
-    conn: Connection;
-    object: string;
-    field?: string[];
-    where?: string;
-    limit?: number;
-    ids?: Set<string>;
-  }
-
-export { IFSObject, IFerror, IFSAJ_Analyze_Result__c, IFRecordType, IFSAJ_App__c};

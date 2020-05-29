@@ -1,7 +1,8 @@
-import { Connection, SfdxError, Org } from '@salesforce/core';
-import { IFRecordType, IFSAJ_Analyze_Result__c, IFSAJ_Release__c, IFSAJ_Release_Component__c, IFQuery, IFSummary, SAJ_Analyze_Job_Summary__c, IFJob } from './analyze_object_definition';
-import { fnResultSuccess, fnResultErrorMsg, fnBuildSoql, fnResultMessage, fnGetAllId } from './analyze_util';
-import { isNullOrUndefined } from 'util';
+import { Connection, Org, SfdxError } from '@salesforce/core';
+import { IFJob, IFQuery, IFRecordType, IFSAJ_Analyze_Result__c, IFSAJ_Release__c, IFSAJ_Release_Component__c, IFSummary, SAJ_Analyze_Job_Summary__c } from './analyze_object_definition';
+import JobResultTemplate1 from './analyze_result_template1';
+import JobResultTemplate2 from './analyze_result_template2';
+import { fnBuildSoql, fnResultSuccess } from './analyze_util';
 
 enum ResultTemplate {
     releasecomponent,
@@ -83,7 +84,7 @@ class DoaspasShared {
     }
 
     public async LoadBuildComponent(): Promise<void> {
-        if (isNullOrUndefined(DoaspasShared.build)) {
+        if (DoaspasShared.build === null || DoaspasShared.build === undefined) {
             throw new SfdxError('Must execute LoadBuild first');
         }
         const q: IFQuery = {conn: this.conn, object: 'SAJ_Release_Component__c', where: 'SAJ_Release__c' + '='  + '\'' + DoaspasShared.build.Id + '\''};
@@ -94,14 +95,13 @@ class DoaspasShared {
 
 abstract class DoaspasResult {
     public summary: IFSummary;
-    public data: IFSAJ_Analyze_Result__c;
 
     constructor() {
         this.summary = {completed: false, message: '', startTime: Date.now()};
     }
 }
 
-abstract class DoaspasBuildResult extends DoaspasResult {
+export abstract class DoaspasBuildResult extends DoaspasResult {
     protected job: DoaspasBuildJob;
 
     constructor(job: DoaspasBuildJob) {
@@ -144,6 +144,7 @@ abstract class DoaspasBuildResult extends DoaspasResult {
         this.summary.execTime = this.summary.endTime - this.summary.startTime + 1;
 
         const summaryRec: SAJ_Analyze_Job_Summary__c = {};
+        summaryRec.Name = this.job.ref;
         summaryRec.SAJ_Message__c = this.summary.message;
         summaryRec.SAJ_Short_Message__c = this.summary.message.substring(0, 255);
         summaryRec.SAJ_Exec_Time__c = this.summary.execTime;
@@ -165,74 +166,4 @@ abstract class DoaspasBuildResult extends DoaspasResult {
     }
 }
 
-class JobResultTemplate1 extends DoaspasBuildResult {
-
-    constructor(job: DoaspasBuildJob) {
-        super(job);
-        this.data = {};
-    }
-
-    public async Insert(): Promise<string> {
-        const p = await DoaspasShared.acCon.insert('SAJ_Analyze_Result__c', this.data);
-        return fnResultMessage(p);
-    }
-
-    public async Replace(): Promise<string> {
-
-        const q: IFQuery = {conn: DoaspasShared.acCon, object: 'SAJ_Analyze_Result__c', field: ['Id'], where: 'SAJ_App_Analyze_Job__c' + '='  + '\'' + this.job.field.AppJobId + '\''};
-        const r = await DoaspasShared.acCon.query<IFSAJ_Analyze_Result__c>(await fnBuildSoql(q));
-
-        const p = await DoaspasShared.acCon.delete('SAJ_Analyze_Result__c', fnGetAllId(r.records));
-        return await this.Insert();
-    }
-
-    public async Upsert(): Promise<string> {
-        const p = await DoaspasShared.acCon.upsert('SAJ_Analyze_Result__c', this.data, 'Id');
-        return fnResultMessage(p);
-    }
-
-    public toJSON() {
-        const ret = [{summary: this.summary, data: this.data}];
-        return ret;
-    }
-
-    protected setCommonLookups(): void {
-        this.setCommonLookupFields(this.data);
-    }
-}
-
-class JobResultTemplate2 extends DoaspasBuildResult {
-
-    constructor(job: DoaspasBuildJob) {
-        super(job);
-        this.data = {};
-    }
-
-    public async Insert(): Promise<string> {
-        const p = await DoaspasShared.acCon.insert('SAJ_Analyze_Result__c', this.data);
-        return fnResultMessage(p);
-    }
-
-    public async Replace(): Promise<string> {
-        const q: IFQuery = {conn: DoaspasShared.acCon, object: 'SAJ_Analyze_Result__c', field: ['Id'], where: 'SAJ_App_Analyze_Job__c' + '='  + '\'' + this.job.field.AppJobId + '\''};
-        const r = await DoaspasShared.acCon.query<IFSAJ_Release_Component__c>(await fnBuildSoql(q));
-
-        console.log (r.records);
-        console.log(fnGetAllId(r.records));
-
-        const p = await DoaspasShared.acCon.delete('SAJ_Analyze_Result__c', fnGetAllId(r.records));
-        console.log ('DELETE:' + p);
-        return await this.Insert();
-    }
-
-    public async Upsert(): Promise<string> {
-        const p = await DoaspasShared.acCon.upsert('SAJ_Analyze_Result__c', this.data, 'Id');
-        return fnResultMessage(p);
-    }
-
-    protected setCommonLookups(): void {
-        this.setCommonLookupFields(this.data);
-    }
-}
-
-export {DoaspasBuildJob, JobResultTemplate1, JobResultTemplate2, ResultTemplate, DoaspasShared };
+export {DoaspasBuildJob, ResultTemplate, DoaspasShared };

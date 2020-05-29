@@ -1,5 +1,5 @@
 import { isNullOrUndefined } from 'util';
-import { IFerror, IFSAJ_Analyze_Result__c, IFQuery, IFSObject } from './analyze_object_definition';
+import { IFerror, IFQuery, IFSObject } from './analyze_object_definition';
 
 export async function fnBuildSoql(v: IFQuery): Promise <string> {
 

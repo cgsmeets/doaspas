@@ -13,12 +13,12 @@ Messages.importMessagesDirectory(__dirname);
 // or any library that is using the messages framework can also be loaded this way.
 const messages = Messages.loadMessages('doaspas', 'org');
 
-export default class analyze extends SfdxCommand {
+export default class Analyze extends SfdxCommand {
 
   public static description = messages.getMessage('commandDescription');
 
   public static examples = [
-  `$ sfdx build:analyze -u AppCentralOrg -n -t ValidationOrg "Build A" `
+  '$ sfdx build:analyze -u AppCentralOrg -n -t ValidationOrg "Build A" '
   ];
 
   public static args = [{name: 'file'}];
@@ -93,10 +93,12 @@ export default class analyze extends SfdxCommand {
     jobMinMaxTime += 'Slowest Job' + jobMaxTime.field.Name + ' (' + jobMaxTime.getSummary().execTime + ')\n';
 
     const summaryRec: IFSAJ_Analyze_Result__c = {RecordTypeId: DoaspasShared.resultRecordTypeId['Execution_Summary']};
+    summaryRec.Name = 'Execution Summary';
     summaryRec.SAJ_App__c = DoaspasShared.build.SAJ_Application__r.Id;
     summaryRec.SAJ_Release__c = DoaspasShared.build.Id;
     summaryRec.SAJ_Message__c = jobMinMaxTime + message;
-    summaryRec.SAJ_Total_Time__c = jobMaxTime.getSummary().execTime;
+    summaryRec.SAJ_Total_Time__c = totalTime;
+    summaryRec.SAJ_Exec_Time__c = jobMaxTime.getSummary().execTime;
 
     const p = await conn.insert('SAJ_Analyze_Result__c', summaryRec);
     if (!fnResultSuccess(p)) {

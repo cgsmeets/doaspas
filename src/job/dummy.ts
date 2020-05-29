@@ -1,6 +1,7 @@
 import { Connection, SfdxError } from '@salesforce/core';
-import { DoaspasBuildJob, JobResultTemplate1 } from '../lib/analyze_definition';
-import { IFSAJ_Release__c, IFSummary, IFJob } from '../lib/analyze_object_definition';
+import { DoaspasBuildJob } from '../lib/analyze_definition';
+import JobResultTemplate1 from '../lib/analyze_result_template1';
+import { IFJob } from '../lib/analyze_object_definition';
 
 export default class Dummy extends DoaspasBuildJob {
 
@@ -20,7 +21,7 @@ export default class Dummy extends DoaspasBuildJob {
         // ### Store the results on App Central
         await this.result.Process();
 
-        return this.result as JobResultTemplate1;
+        return this.result;
     }
 
 }
