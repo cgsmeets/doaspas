@@ -14,13 +14,21 @@ export default class Prefix extends DoaspasBuildJob {
 
         this.result = new JobResultTemplate2(this);
 
-        // ### perform the check
+        try {
+            // ### perform the check
 
-        this.result.data.push({Name : 'TESTING1'});
-        this.result.data.push({Name : 'TESTING2'});
+            this.result.data.push({Name : 'TESTING1', SAJ_Passed__c : true});
+            this.result.data.push({Name : 'TESTING2', SAJ_Passed__c : true});
 
-       // this.result.data.Name = 'TESTING';
-      //  this.result.data.SAJ_Release_Component__c = 'abc';
+            // ### use throw statements in case the job has to abort
+            // throw new Error('something bad happened');
+
+        } catch (e) {
+            this.result.summary.message = (e as Error).message;
+        }
+
+        // this.result.data.Name = 'TESTING';
+        //  this.result.data.SAJ_Release_Component__c = 'abc';
 
         // ### Store the results on App Central
         await this.result.Process();

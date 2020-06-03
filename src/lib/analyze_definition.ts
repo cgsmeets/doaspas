@@ -1,8 +1,8 @@
 import { Connection, Org, SfdxError } from '@salesforce/core';
-import { IFJob, IFQuery, IFRecordType, IFSAJ_Analyze_Result__c, IFSAJ_Release__c, IFSAJ_Release_Component__c, IFSummary, SAJ_Analyze_Job_Summary__c } from './analyze_object_definition';
+import { IFJob, IFProcessResult, IFQuery, IFRecordType, IFSAJ_Analyze_Result__c, IFSAJ_Release__c, IFSAJ_Release_Component__c, IFSummary } from './analyze_object_definition';
 import JobResultTemplate1 from './analyze_result_template1';
 import JobResultTemplate2 from './analyze_result_template2';
-import { fnBuildSoql, fnResultSuccess } from './analyze_util';
+import { fnBuildSoql, fnResultErrorMsg, fnResultSuccess } from './analyze_util';
 
 enum ResultTemplate {
     releasecomponent,
@@ -38,6 +38,7 @@ abstract class DoaspasBuildJob extends DoaspasJob {
 class DoaspasShared {
     public static acCon: Connection;
     public static envCon: Connection;
+    public static buildSummaryRec: IFSAJ_Analyze_Result__c = {};
     public static local: boolean;
     public static resultRecordTypeId;
     public static build: IFSAJ_Release__c;
@@ -66,11 +67,42 @@ class DoaspasShared {
     public async LoadRecordType(): Promise<void> {
         const q = 'SELECT Id, DeveloperName FROM RecordType where Sobjecttype = \'SAJ_Analyze_Result__c\'';
         const r = await this.conn.query<IFRecordType>(q);
-        const res = new Array();
+        const res = new Map();
         for (const f of r.records) {
-            res.push(f.DeveloperName, f.Id);
+            res.set(f.DeveloperName, f.Id);
         }
         DoaspasShared.resultRecordTypeId = res;
+    }
+
+    public async InitBuildSummary(): Promise<void> {
+        DoaspasShared.buildSummaryRec.RecordTypeId =  DoaspasShared.resultRecordTypeId.get('Build_Summary');
+        DoaspasShared.buildSummaryRec.Name = 'Build Summary';
+        DoaspasShared.buildSummaryRec.SAJ_Passed__c = false;
+        DoaspasShared.buildSummaryRec.SAJ_App__c = DoaspasShared.build.SAJ_Application__r.Id;
+        DoaspasShared.buildSummaryRec.SAJ_Release__c = DoaspasShared.build.Id;
+
+        const p = await this.conn.insert('SAJ_Analyze_Result__c', DoaspasShared.buildSummaryRec);
+        if (!fnResultSuccess(p)) {
+            for (const f of fnResultErrorMsg(p)) {
+              console.log(f);
+            }
+            throw new SfdxError('Can not create build summary record');
+        } else {
+            console.log('Build Summary: ' + p['id']);
+            DoaspasShared.buildSummaryRec.Id = p['id'];
+        }
+
+    }
+
+    public async CompleteBuildSummary(): Promise<void> {
+
+        const p = await this.conn.update('SAJ_Analyze_Result__c', DoaspasShared.buildSummaryRec);
+        if (!fnResultSuccess(p)) {
+            for (const f of fnResultErrorMsg(p)) {
+              console.log(f);
+            }
+            throw new SfdxError('Can not update build summary record');
+        }
     }
 
     public async LoadBuild(buildname: string): Promise<void> {
@@ -95,9 +127,10 @@ class DoaspasShared {
 
 abstract class DoaspasResult {
     public summary: IFSummary;
+    public recordtypeid: string;
 
     constructor() {
-        this.summary = {completed: false, message: '', startTime: Date.now()};
+        this.summary = {completed: false, passed: false, message: '', startTime: Date.now()};
     }
 }
 
@@ -109,60 +142,80 @@ export abstract class DoaspasBuildResult extends DoaspasResult {
         this.job = job;
         this.summary.job = job.field;
     }
-    public abstract async Insert(): Promise<string>;
-    public abstract async Replace(): Promise<string>;
-    public abstract async Upsert(): Promise<string>;
+    public abstract async Insert(): Promise<IFProcessResult>;
+    public abstract async Replace(): Promise<IFProcessResult>;
+    public abstract async Upsert(): Promise<IFProcessResult>;
 
     public async Process(): Promise<IFSummary> {
 
-        let message: string = '';
-        this.setCommonLookups();
+        const rec: IFSAJ_Analyze_Result__c = await this.CreateJobSummary();
+        let pResult: IFProcessResult;
+        this.setCommonFields();
 
         switch (this.job.field.Operation) {
             case 'Insert':
-                message = await this.Insert();
+                pResult = await this.Insert();
                 break;
             case 'Replace':
-                message = await this.Replace();
+                pResult = await this.Replace();
                 break;
             case 'Upsert':
-                message = await this.Upsert();
+                pResult = await this.Upsert();
                 break;
             default:
                 throw new SfdxError('Unknown Job Operation');
                 break;
         }
-        await this.CreateSummary(message);
+
+        await this.CompleteJobSummary(rec, pResult);
 
         return this.summary;
     }
 
-    public async CreateSummary(message: string): Promise<void> {
-        this.summary.completed = message.localeCompare('') === 0;
-        this.summary.message += message;
+    public async CreateJobSummary(): Promise<IFSAJ_Analyze_Result__c> {
+        const jobSummaryRec: IFSAJ_Analyze_Result__c = {};
+
+        jobSummaryRec.RecordTypeId = DoaspasShared.resultRecordTypeId['Job_Summary'];
+        jobSummaryRec.Name = 'Job Summary - ' + this.job.ref;
+        jobSummaryRec.SAJ_Analyze_Job__c = this.job.field.JobId;
+        jobSummaryRec.SAJ_Analyze_Job_Assignment__c = this.job.field.AppJobId;
+
+        const p = await DoaspasShared.acCon.insert('SAJ_Analyze_Result__c', jobSummaryRec);
+        if (!fnResultSuccess(p)) {
+            throw new SfdxError('Error Creating Job Summary');
+        } else {
+            jobSummaryRec.Id = p['id'];
+        }
+        return jobSummaryRec;
+    }
+
+    public async CompleteJobSummary(jobSummaryRec: IFSAJ_Analyze_Result__c, pResult: IFProcessResult): Promise<void> {
+
+        this.summary.message += pResult.message;
+        this.summary.completed = this.summary.message.localeCompare('') === 0;
+        this.summary.passed = (pResult.passed ==  null ? false : pResult.passed) && this.summary.completed;
         this.summary.endTime = Date.now();
         this.summary.execTime = this.summary.endTime - this.summary.startTime + 1;
 
-        const summaryRec: SAJ_Analyze_Job_Summary__c = {};
-        summaryRec.Name = this.job.ref;
-        summaryRec.SAJ_Message__c = this.summary.message;
-        summaryRec.SAJ_Short_Message__c = this.summary.message.substring(0, 255);
-        summaryRec.SAJ_Exec_Time__c = this.summary.execTime;
-        summaryRec.SAJ_Analyze_Job__c = this.job.field.JobId;
-        summaryRec.SAJ_App_Analyze_Job__c = this.job.field.AppJobId;
-        const p = await DoaspasShared.acCon.insert('SAJ_Analyze_Job_Summary__c', summaryRec);
+        jobSummaryRec.SAJ_Message__c = this.summary.message;
+        jobSummaryRec.SAJ_Short_Message__c = this.summary.message.substring(0, 255);
+        jobSummaryRec.SAJ_Exec_Time__c = this.summary.execTime;
+
+        const p = await DoaspasShared.acCon.update('SAJ_Analyze_Result__c', jobSummaryRec);
         if (!fnResultSuccess(p)) {
-            throw new SfdxError('Error Saving Job Summary');
+            throw new SfdxError('Error Updating Job Summary');
         }
     }
 
-    protected abstract setCommonLookups(): void;
+    protected abstract setCommonFields(): void;
 
-    protected setCommonLookupFields(v: IFSAJ_Analyze_Result__c): void {
+    protected setFields(v: IFSAJ_Analyze_Result__c): void {
         v.SAJ_Analyze_Job__c = this.job.field.JobId;
         v.SAJ_Analyze_Job_Assignment__c = this.job.field.AppJobId;
         v.SAJ_Release__c = DoaspasShared.build.Id;
         v.SAJ_App__c = DoaspasShared.build.SAJ_Application__r.Id;
+        v.SAJ_Parent__c = DoaspasShared.buildSummaryRec.Id;
+        v.RecordTypeId = this.recordtypeid;
     }
 }
 

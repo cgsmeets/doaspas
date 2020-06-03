@@ -1,5 +1,5 @@
 import { DoaspasBuildJob, DoaspasBuildResult, DoaspasShared } from './analyze_definition';
-import { IFQuery, IFSAJ_Analyze_Result__c } from './analyze_object_definition';
+import { IFProcessResult, IFQuery, IFSAJ_Analyze_Result__c } from './analyze_object_definition';
 import { fnBuildSoql, fnGetAllId, fnResultMessage } from './analyze_util';
 
 export default class JobResultTemplate2 extends DoaspasBuildResult {
@@ -7,26 +7,40 @@ export default class JobResultTemplate2 extends DoaspasBuildResult {
 
     constructor(job: DoaspasBuildJob) {
         super(job);
-        this.data = [{}];
+        this.data = new Array<IFSAJ_Analyze_Result__c>();
+        this.recordtypeid = DoaspasShared.resultRecordTypeId.get('Job_Result_2');
     }
 
-    public async Insert(): Promise<string> {
+    public async Insert(): Promise<IFProcessResult> {
+        const r: IFProcessResult = {passed : true};
         const p = await DoaspasShared.acCon.insert('SAJ_Analyze_Result__c', this.data);
-        return fnResultMessage(p);
+        for (const f of this.data) {
+            r.passed = r.passed && f.SAJ_Passed__c;
+        }
+        r.message = fnResultMessage(p);
+        return r;
     }
 
-    public async Replace(): Promise<string> {
+    public async Replace(): Promise<IFProcessResult> {
 
-        const q: IFQuery = {conn: DoaspasShared.acCon, object: 'SAJ_Analyze_Result__c', field: ['Id'], where: 'SAJ_App_Analyze_Job__c' + '='  + '\'' + this.job.field.AppJobId + '\''};
+        const q: IFQuery = {conn: DoaspasShared.acCon,
+            object: 'SAJ_Analyze_Result__c',
+            field: ['Id'],
+            where: 'SAJ_Analyze_Job_Assignment__c' + '='  + '\'' + this.job.field.AppJobId + '\'' + ' AND recordtypeid = ' + '\'' + this.recordtypeid + '\''};
         const r = await DoaspasShared.acCon.query<IFSAJ_Analyze_Result__c>(await fnBuildSoql(q));
 
         await DoaspasShared.acCon.delete('SAJ_Analyze_Result__c', fnGetAllId(r.records));
         return await this.Insert();
     }
 
-    public async Upsert(): Promise<string> {
+    public async Upsert(): Promise<IFProcessResult> {
+        const r: IFProcessResult = {passed : true};
         const p = await DoaspasShared.acCon.upsert('SAJ_Analyze_Result__c', this.data, 'Id');
-        return fnResultMessage(p);
+        for (const f of this.data) {
+            r.passed = r.passed && f.SAJ_Passed__c;
+        }
+        r.message = fnResultMessage(p);
+        return r;
     }
 
     public toJSON() {
@@ -34,9 +48,9 @@ export default class JobResultTemplate2 extends DoaspasBuildResult {
         return ret;
     }
 
-    protected setCommonLookups(): void {
+    protected setCommonFields(): void {
         for (const f of this.data) {
-            this.setCommonLookupFields(f);
+            this.setFields(f);
         }
     }
 }

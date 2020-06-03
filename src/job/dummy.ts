@@ -14,10 +14,16 @@ export default class Dummy extends DoaspasBuildJob {
 
         this.result = new JobResultTemplate1(this);
 
-        // ### perform the check
-        this.result.data.Name = 'DUMMY';
-       // this.result.data.SAJ_Release_Component__c = 'abc';
+        try {
 
+            // ### perform the check
+            this.result.data.Name = 'DUMMY';
+            this.result.data.SAJ_Passed__c = true;
+            // this.result.data.SAJ_Release_Component__c = 'abc';
+
+        } catch (e) {
+            this.result.summary.message = (e as Error).message;
+        }
         // ### Store the results on App Central
         await this.result.Process();
 

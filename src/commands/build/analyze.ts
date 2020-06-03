@@ -1,10 +1,9 @@
 import { flags, SfdxCommand } from '@salesforce/command';
-import { Messages, SfdxError } from '@salesforce/core';
+import { Messages } from '@salesforce/core';
 import { AnyJson } from '@salesforce/ts-types';
 import { DoaspasShared } from '../../lib/analyze_definition';
 import { jobmap } from '../../lib/analyze_job_mapping';
-import { IFJob, IFSAJ_Analyze_Job_Assignment__c, IFSAJ_Analyze_Result__c, IFSummary } from '../../lib/analyze_object_definition';
-import { fnResultErrorMsg, fnResultSuccess } from '../../lib/analyze_util';
+import { IFJob, IFSAJ_Analyze_Job_Assignment__c, IFSummary } from '../../lib/analyze_object_definition';
 
 // Initialize Messages with the current plugin directory
 Messages.importMessagesDirectory(__dirname);
@@ -41,6 +40,8 @@ export default class Analyze extends SfdxCommand {
 
   public async run(): Promise<AnyJson> {
 
+    const r = new Array();
+
     // ### check if we are connected to App Central
     const conn = this.org.getConnection();
 
@@ -50,13 +51,14 @@ export default class Analyze extends SfdxCommand {
     await shared.LoadRecordType();
     await shared.LoadBuild(this.flags.name);
     await shared.LoadBuildComponent();
+    await shared.InitBuildSummary();
 
     // ### Read the jobs for the corresponding App
     const appId = DoaspasShared.build.SAJ_Application__c;
     let q = 'select Id, SAJ_Operation__c, SAJ_App__c, SAJ_Analyze_Job__r.Id, SAJ_Analyze_Job__r.Name, name from SAJ_Analyze_Job_Assignment__c where ';
     q += 'SAJ_App__c = ' + '\'' + appId + '\'';
     const appJob = await conn.query<IFSAJ_Analyze_Job_Assignment__c>(q);
-    console.log (appJob.records);
+    // console.log (appJob.records);
 
     // ### Execute the jobs
     const oJobs = new Array();
@@ -75,14 +77,22 @@ export default class Analyze extends SfdxCommand {
     await Promise.all(pJobs);
 
     console.log ('All jobs completed');
+
     let message: string = '';
     let totalTime: number = 0;
     let jobMinTime = oJobs[0];
     let jobMaxTime = oJobs[0];
+    let rpassed = true;
+    const rsummary = new Array();
+
     for (const f of oJobs) {
       const summary: IFSummary = f.getSummary();
-      if (!summary.completed) {
-        message += f.name + ':' + summary.message + '\n';
+
+      rpassed = rpassed && summary.passed;
+      rsummary.push({summary});
+
+      if (!summary.passed) {
+        message += 'Messages: ' + f.field.Name + ':' + summary.message + '\n';
       }
       totalTime += summary.execTime;
       jobMinTime = summary.execTime < jobMinTime.getSummary().execTime ? f : jobMinTime;
@@ -90,23 +100,17 @@ export default class Analyze extends SfdxCommand {
     }
     let jobMinMaxTime: string;
     jobMinMaxTime = 'Fastest Job:' + jobMinTime.field.Name + ' (' + jobMinTime.getSummary().execTime + ')\n';
-    jobMinMaxTime += 'Slowest Job' + jobMaxTime.field.Name + ' (' + jobMaxTime.getSummary().execTime + ')\n';
+    jobMinMaxTime += 'Slowest Job:' + jobMaxTime.field.Name + ' (' + jobMaxTime.getSummary().execTime + ')\n';
 
-    const summaryRec: IFSAJ_Analyze_Result__c = {RecordTypeId: DoaspasShared.resultRecordTypeId['Execution_Summary']};
-    summaryRec.Name = 'Execution Summary';
-    summaryRec.SAJ_App__c = DoaspasShared.build.SAJ_Application__r.Id;
-    summaryRec.SAJ_Release__c = DoaspasShared.build.Id;
-    summaryRec.SAJ_Message__c = jobMinMaxTime + message;
-    summaryRec.SAJ_Total_Time__c = totalTime;
-    summaryRec.SAJ_Exec_Time__c = jobMaxTime.getSummary().execTime;
+    DoaspasShared.buildSummaryRec.SAJ_Passed__c = rpassed;
+    DoaspasShared.buildSummaryRec.SAJ_Message__c = jobMinMaxTime + message;
+    DoaspasShared.buildSummaryRec.SAJ_Total_Time__c = totalTime;
+    DoaspasShared.buildSummaryRec.SAJ_Exec_Time__c = jobMaxTime.getSummary().execTime;
 
-    const p = await conn.insert('SAJ_Analyze_Result__c', summaryRec);
-    if (!fnResultSuccess(p)) {
-        for (const f of fnResultErrorMsg(p)) {
-          console.log(f);
-        }
-        throw new SfdxError('Can not write summary record');
-    }
+    await shared.CompleteBuildSummary();
+
+    r.push({BuildSummary: DoaspasShared.buildSummaryRec, details : rsummary});
+    return r;
 
 /*
 

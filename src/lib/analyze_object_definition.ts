@@ -13,6 +13,7 @@ export enum SEVERITY {
 }
 
 export interface IFSummary {
+    passed: boolean;
     completed: boolean;
     message: string;
     startTime: number;
@@ -26,6 +27,11 @@ export interface IFJob {
     JobId: string;
     Name: string;
     Operation: string;
+}
+
+export interface IFProcessResult {
+    passed?: boolean;
+    message?: string;
 }
 
 export interface IFRecordType {
@@ -113,24 +119,18 @@ export interface IFSAJ_Analyze_Job_Assignment__c extends IFSObject {
 }
 
 // tslint:disable-next-line: class-name
-export interface SAJ_Analyze_Job_Summary__c extends IFSObject {
-    SAJ_Analyze_Job__c?: string;
-    SAJ_App_Analyze_Job__c?: string;
-    SAJ_Exec_Time__c?: number;
-    SAJ_Message__c?: string;
-    SAJ_Short_Message__c?: string;
-
-}
-
-// tslint:disable-next-line: class-name
 export interface IFSAJ_Analyze_Result__c extends IFSObject {
+    SAJ_Severity__c?: SEVERITY;
+    SAJ_Parent__c?: string;
     SAJ_Report__c?: boolean;
+    SAJ_Passed__c?: boolean;
     SAJ_Release_Component__c?: string;
     SAJ_Release__c?: string;
     SAJ_Analyze_Job_Assignment__c?: string;
     SAJ_Analyze_Job__c?: string;
     SAJ_App__c?: string;
     SAJ_Message__c?: string;
+    SAJ_Short_Message__c?: string;
     SAJ_Exec_Time__c?: number;
     SAJ_Total_Time__c?: number;
 }
