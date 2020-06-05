@@ -5,6 +5,8 @@ import JobResultTemplate1 from '../lib/analyze_result_template1';
 
 export default class Dummy extends DoaspasBuildJob {
 
+    public static runLocal: boolean = true;
+
     constructor(conn: Connection, job: IFJob) {
         super(job);
     }

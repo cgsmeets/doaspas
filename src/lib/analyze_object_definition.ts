@@ -135,6 +135,17 @@ export interface IFSAJ_Analyze_Result__c extends IFSObject {
     SAJ_Total_Time__c?: number;
 }
 
+// tslint:disable-next-line: class-name
+export interface IFSAJ_Environment__c extends IFSObject {
+    SAJ_Username__c?: string;
+}
+
+// tslint:disable-next-line: class-name
+export interface IFSAJ_Release_Environment__c extends IFSObject {
+    SAJ_Release__r?: IFSAJ_Release__c;
+    SAJ_Environment__r?: IFSAJ_Environment__c;
+
+}
 export interface IFMetadata {
     fullname: string;
 }

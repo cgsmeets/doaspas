@@ -5,6 +5,8 @@ import JobResultTemplate2 from '../lib/analyze_result_template2';
 
 export default class Prefix extends DoaspasBuildJob {
 
+   public static runLocal: boolean = false;
+
     constructor(conn: Connection, job: IFJob) {
         super(job);
     }

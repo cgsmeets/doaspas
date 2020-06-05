@@ -1,5 +1,5 @@
 import { Connection, Org, SfdxError } from '@salesforce/core';
-import { IFJob, IFProcessResult, IFQuery, IFRecordType, IFSAJ_Analyze_Result__c, IFSAJ_Release__c, IFSAJ_Release_Component__c, IFSummary } from './analyze_object_definition';
+import { IFJob, IFProcessResult, IFQuery, IFRecordType, IFSAJ_Analyze_Result__c, IFSAJ_Release__c, IFSAJ_Release_Component__c, IFSummary, IFSAJ_Release_Environment__c } from './analyze_object_definition';
 import JobResultTemplate1 from './analyze_result_template1';
 import JobResultTemplate2 from './analyze_result_template2';
 import { fnBuildSoql, fnResultErrorMsg, fnResultSuccess, fnGetAllId } from './analyze_util';
@@ -23,6 +23,7 @@ abstract class DoaspasJob {
 }
 
 abstract class DoaspasBuildJob extends DoaspasJob {
+    public static runLocal: boolean = false;
     public result: JobResultTemplate1|JobResultTemplate2;
 
     constructor(job: IFJob) {
@@ -69,37 +70,39 @@ class DoaspasShared {
 
             if (this.target === null || this.target === undefined) {
                 DoaspasShared.runMode = 'local';
+                DoaspasShared.local = true;
                 r = 'No target or deployid provided';
-            } else {
-
-                try {
-                    const env = await Org.create({
-                        aliasOrUsername: this.target
-                    });
-                    DoaspasShared.envCon = env.getConnection();
-                    DoaspasShared.runMode = 'connected';
-                    r = 'Connnected to Target:' + DoaspasShared.envCon.getUsername();
-                } catch (e) {
-                    DoaspasShared.runMode = 'local';
-                    r = 'Can not connect to Target: ' + (e as Error).message;
-                }
             }
 
         } else {
-
             DoaspasShared.runMode = 'release';
-
-            let q = 'SELECT Id, Name FROM SAJ_Release__c where ';
+            DoaspasShared.local = false;
+ 
+            let q = 'SELECT Id, SAJ_Release__r.Name, SAJ_Environment__r.SAJ_Username__c FROM SAJ_Release_Environment__c where ';
             q += 'SAJ_Deployment_Id__c = ' + '\'' + this.deployid + '\' limit 1';
-            const qr = await this.conn.query<IFSAJ_Release__c>(q);
+            const qr = await this.conn.query<IFSAJ_Release_Environment__c>(q);
             if (qr.totalSize === 0) {
-                throw new SfdxError('No Build Found for Deployment Id: ' + this.deployid);
+                throw new SfdxError('No Build Environment Found for Deployment Id: ' + this.deployid);
             } else {
-                this.buildref = qr.records[0].Name;
+                this.buildref = qr.records[0].SAJ_Release__r.Name;
+                this.target = qr.records[0].SAJ_Environment__r.SAJ_Username__c;
                 r = 'Release Build: ' + qr.records[0].Id + ' (' + this.buildref + ')';
             }
         }
 
+        if (!DoaspasShared.local || DoaspasShared.local === null || DoaspasShared.local === undefined) {
+
+                const env = await Org.create({
+                    aliasOrUsername: this.target
+                });
+                DoaspasShared.envCon = env.getConnection();
+
+                if (DoaspasShared.local === null || DoaspasShared.local === undefined) {
+                    DoaspasShared.runMode = 'connected';
+                    DoaspasShared.local = false;
+                }
+                r = 'Connnected to Target:' + DoaspasShared.envCon.getUsername();
+        }
         return r;
     }
 
@@ -147,14 +150,14 @@ class DoaspasShared {
 
     public async LoadBuild(): Promise<string> {
         if (this.buildref === null || this.buildref === undefined) {
-            throw new SfdxError('Build undefined - check deployment id');
+            throw new SfdxError('Build undefined - for RunMode:Release check deployment id');
         }
 
         let q = 'SELECT Id, SAJ_Application__c, SAJ_Application__r.Name, SAJ_Application__r.SAJ_Project_Dev_Prefix__c,SAJ_Application__r.Id, Name FROM SAJ_Release__c where ';
         q += 'Name = ' + '\'' + this.buildref + '\' limit 1';
         const qr = await this.conn.query<IFSAJ_Release__c>(q);
         if (qr.totalSize === 0) {
-            throw new SfdxError('No Build Found!');
+            throw new SfdxError('No Build Found for: ' + this.buildref);
         }
         DoaspasShared.build = qr.records[0];
         return DoaspasShared.build.Id;

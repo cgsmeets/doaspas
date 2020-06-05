@@ -59,8 +59,6 @@ export default class Analyze extends SfdxCommand {
 
     this.ux.log ('DOASPAS RunMode: ' + DoaspasShared.runMode);
 
-    return null;
-
     // ### Read the jobs for the corresponding App
     const appId = DoaspasShared.build.SAJ_Application__c;
     let q = 'select Id, SAJ_Operation__c, SAJ_App__c, SAJ_Analyze_Job__r.Id, SAJ_Analyze_Job__r.Name, name from SAJ_Analyze_Job_Assignment__c where ';
@@ -73,18 +71,25 @@ export default class Analyze extends SfdxCommand {
     const pJobs = new Array();
     for (const f of appJob.records) {
       const job = jobmap[f.SAJ_Analyze_Job__r.Name];
-      const jobField: IFJob = { AppJobId: f.Id,
-        JobId: f.SAJ_Analyze_Job__r.Id,
-        Name: f.SAJ_Analyze_Job__r.Name,
-        Operation: f.SAJ_Operation__c};
+      if (!DoaspasShared.local || job.runLocal) {
 
-      const ojob = new job(conn, jobField);
-      oJobs.push(ojob);
-      pJobs.push(ojob.run());
+        const jobField: IFJob = { AppJobId: f.Id,
+          JobId: f.SAJ_Analyze_Job__r.Id,
+          Name: f.SAJ_Analyze_Job__r.Name,
+          Operation: f.SAJ_Operation__c};
+
+        const ojob = new job(conn, jobField);
+        oJobs.push(ojob);
+        pJobs.push(ojob.run());
+
+      } else {
+        this.ux.log('Skipping Job: ' + f.SAJ_Analyze_Job__r.Name + ' (requires a target org)');
+      }
+
     }
     await Promise.all(pJobs);
 
-    console.log ('All jobs completed');
+    this.ux.log ('All jobs completed');
 
     let message: string = '';
     let totalTime: number = 0;
