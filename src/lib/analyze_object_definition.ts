@@ -134,3 +134,7 @@ export interface IFSAJ_Analyze_Result__c extends IFSObject {
     SAJ_Exec_Time__c?: number;
     SAJ_Total_Time__c?: number;
 }
+
+export interface IFMetadata {
+    fullname: string;
+}
