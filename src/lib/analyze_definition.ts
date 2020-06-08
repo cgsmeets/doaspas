@@ -1,5 +1,5 @@
-import { Connection, Org, SfdxError } from '@salesforce/core';
-import { IFJob, IFProcessResult, IFQuery, IFRecordType, IFSAJ_Analyze_Result__c, IFSAJ_Release__c, IFSAJ_Release_Component__c, IFSummary, IFSAJ_Release_Environment__c } from './analyze_object_definition';
+import { Connection, Org, SfdxError, AuthFields } from '@salesforce/core';
+import { IFJob, IFProcessResult, IFQuery, IFRecordType, IFSAJ_Analyze_Result__c, IFSAJ_Release__c, IFSAJ_Release_Component__c, IFSummary, IFSAJ_Release_Environment__c, IFSAJ_Release_Component_Environment__c, IFSObject, IFUser } from './analyze_object_definition';
 import JobResultTemplate1 from './analyze_result_template1';
 import JobResultTemplate2 from './analyze_result_template2';
 import { fnBuildSoql, fnResultErrorMsg, fnResultSuccess, fnGetAllId } from './analyze_util';
@@ -43,30 +43,34 @@ class DoaspasShared {
     public static buildSummaryRec: IFSAJ_Analyze_Result__c = {};
     public static runMode: string;
     public static local: boolean;
+    public static user: IFUser;
     public static resultRecordTypeId;
     public static build: IFSAJ_Release__c;
+    public static buildcompenv: IFSAJ_Release_Component_Environment__c[];
     public static buildcomp: IFSAJ_Release_Component__c[];
     protected conn: Connection;
     protected target: string;
-    protected buildref: string;
-    protected deployid: string;
+    protected buildRef: string;
+    protected buildEnvId: string;
 
-     constructor(conn: Connection, target: string, build: string, deployid: string) {
+     constructor(conn: Connection, target: string, buildRef: string, buildEnvId: string) {
         this.conn = conn;
         this.target = target;
-        this.buildref = build;
-        this.deployid = deployid;
+        this.buildRef = buildRef;
+        this.buildEnvId = buildEnvId;
     }
 
     public async Init(): Promise<string> {
         DoaspasShared.acCon = this.conn;
+        const user = await this.conn.query<IFUser>('select id from user where username = ' + '\'' +  this.conn.getUsername() + '\'')
+        DoaspasShared.user = user.records[0];
         return await this.SetRunMode();
     }
 
     public async SetRunMode(): Promise<string> {
         let r: string;
 
-        if (this.deployid === null || this.deployid === undefined) {
+        if (this.buildEnvId === null || this.buildEnvId === undefined) {
 
             if (this.target === null || this.target === undefined) {
                 DoaspasShared.runMode = 'local';
@@ -77,16 +81,20 @@ class DoaspasShared {
         } else {
             DoaspasShared.runMode = 'release';
             DoaspasShared.local = false;
- 
-            let q = 'SELECT Id, SAJ_Release__r.Name, SAJ_Environment__r.SAJ_Username__c FROM SAJ_Release_Environment__c where ';
-            q += 'SAJ_Deployment_Id__c = ' + '\'' + this.deployid + '\' limit 1';
-            const qr = await this.conn.query<IFSAJ_Release_Environment__c>(q);
+
+            const q: IFQuery = {conn: this.conn,
+                                field: ['Id', 'SAJ_Release__r.Name', 'SAJ_Environment__r.SAJ_Username__c'],
+                                object: 'SAJ_Release_Environment__c', 
+                                where: 'Id = ' + '\'' + this.buildEnvId + '\' limit 1'};
+            const qr = await this.conn.query<IFSAJ_Release_Environment__c>(await fnBuildSoql(q));
+
             if (qr.totalSize === 0) {
-                throw new SfdxError('No Build Environment Found for Deployment Id: ' + this.deployid);
+                throw new SfdxError('No Build Environment Found for Deployment Id: ' + this.buildEnvId);
             } else {
-                this.buildref = qr.records[0].SAJ_Release__r.Name;
+                DoaspasShared.buildcompenv = qr.records;
+                this.buildRef = qr.records[0].SAJ_Release__r.Name;
                 this.target = qr.records[0].SAJ_Environment__r.SAJ_Username__c;
-                r = 'Release Build: ' + qr.records[0].Id + ' (' + this.buildref + ')';
+                r = 'Release Build: ' + qr.records[0].Id + ' (' + this.buildRef + ')';
             }
         }
 
@@ -149,15 +157,15 @@ class DoaspasShared {
     }
 
     public async LoadBuild(): Promise<string> {
-        if (this.buildref === null || this.buildref === undefined) {
+        if (this.buildRef === null || this.buildRef === undefined) {
             throw new SfdxError('Build undefined - for RunMode:Release check deployment id');
         }
 
         let q = 'SELECT Id, SAJ_Application__c, SAJ_Application__r.Name, SAJ_Application__r.SAJ_Project_Dev_Prefix__c,SAJ_Application__r.Id, Name FROM SAJ_Release__c where ';
-        q += 'Name = ' + '\'' + this.buildref + '\' limit 1';
+        q += 'Name = ' + '\'' + this.buildRef + '\' limit 1';
         const qr = await this.conn.query<IFSAJ_Release__c>(q);
         if (qr.totalSize === 0) {
-            throw new SfdxError('No Build Found for: ' + this.buildref);
+            throw new SfdxError('No Build Found for: ' + this.buildRef);
         }
         DoaspasShared.build = qr.records[0];
         return DoaspasShared.build.Id;

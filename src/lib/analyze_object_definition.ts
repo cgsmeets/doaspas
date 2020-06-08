@@ -103,6 +103,25 @@ export interface IFSAJ_Release_Component__c extends IFSObject {
 }
 
 // tslint:disable-next-line: class-name
+export interface IFSAJ_Environment__c extends IFSObject {
+    SAJ_Username__c?: string;
+}
+
+// tslint:disable-next-line: class-name
+export interface IFSAJ_Release_Environment__c extends IFSObject {
+    SAJ_Release__r?: IFSAJ_Release__c;
+    SAJ_Environment__r?: IFSAJ_Environment__c;
+
+}
+
+// tslint:disable-next-line: class-name
+export interface IFSAJ_Release_Component_Environment__c extends IFSObject {
+    SAJ_Release__r?: IFSAJ_Release__c;
+    SAJ_Environment__r?: IFSAJ_Environment__c;
+    SAJ_Deployment_Id__c?: string;
+}
+
+// tslint:disable-next-line: class-name
 export interface IFSAJ_Analyze_Job__c extends IFSObject {
     dummy_DO_NOT_USE: string;
 }
@@ -135,17 +154,10 @@ export interface IFSAJ_Analyze_Result__c extends IFSObject {
     SAJ_Total_Time__c?: number;
 }
 
-// tslint:disable-next-line: class-name
-export interface IFSAJ_Environment__c extends IFSObject {
-    SAJ_Username__c?: string;
+export interface IFUser extends IFSObject {
+    username?: string;
 }
 
-// tslint:disable-next-line: class-name
-export interface IFSAJ_Release_Environment__c extends IFSObject {
-    SAJ_Release__r?: IFSAJ_Release__c;
-    SAJ_Environment__r?: IFSAJ_Environment__c;
-
-}
 export interface IFMetadata {
     fullname: string;
 }

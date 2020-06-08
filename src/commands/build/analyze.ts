@@ -25,7 +25,7 @@ export default class Analyze extends SfdxCommand {
   protected static flagsConfig = {
     // flag with a value (-n, --name=VALUE)
     targetorg: flags.string({char: 't', description: messages.getMessage('nameFlagDescription')}),
-    deployid: flags.string({char: 'd', description: messages.getMessage('nameFlagDescription')}),
+    buildenvid: flags.string({char: 'b', description: messages.getMessage('nameFlagDescription')}),
     name: flags.string({char: 'n', description: messages.getMessage('nameFlagDescription')}),
     force: flags.boolean({char: 'f', description: messages.getMessage('forceFlagDescription')})
   };
@@ -46,10 +46,8 @@ export default class Analyze extends SfdxCommand {
     // ### check if we are connected to App Central
     const conn = this.org.getConnection();
 
-
-
     // ### Load defaults
-    const shared = new DoaspasShared(conn, this.flags.targetorg, this.flags.name, this.flags.deployid);
+    const shared = new DoaspasShared(conn, this.flags.targetorg, this.flags.name, this.flags.buildenvid);
     await shared.LoadRecordType();
 
     this.ux.log ('INIT: ' + await shared.Init());
