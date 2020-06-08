@@ -19,6 +19,7 @@ export async function fnBuildSoql(v: IFQuery): Promise <string> {
 
   return q;
 }
+
 export function fnGetAllId(v: IFSObject[]): string[] {
   const r = new Array<string>();
   for (const f of v) {

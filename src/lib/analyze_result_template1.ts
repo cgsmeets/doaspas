@@ -24,7 +24,7 @@ export default class JobResultTemplate1 extends DoaspasBuildResult {
         const q: IFQuery = {conn: DoaspasShared.acCon,
                             object: 'SAJ_Analyze_Result__c',
                             field: ['Id'],
-                            where: 'SAJ_Analyze_Job_Assignment__c' + '='  + '\'' + this.job.field.AppJobId + '\'' + ' AND recordtypeid = ' + '\'' + this.recordtypeid + '\''};
+                            where: 'OwnerId = \'' + DoaspasShared.user.Id + '\' AND SAJ_Analyze_Job_Assignment__c' + '='  + '\'' + this.job.field.AppJobId + '\'' + ' AND recordtypeid = ' + '\'' + this.recordtypeid + '\''};
         const r = await DoaspasShared.acCon.query<IFSAJ_Analyze_Result__c>(await fnBuildSoql(q));
 
         await DoaspasShared.acCon.delete('SAJ_Analyze_Result__c', fnGetAllId(r.records));
