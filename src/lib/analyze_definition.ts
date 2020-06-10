@@ -1,9 +1,8 @@
-import { Connection, Org, SfdxError, AuthFields } from '@salesforce/core';
-import { IFJob, IFProcessResult, IFQuery, IFRecordType, IFSAJ_Analyze_Result__c, IFSAJ_Release__c, IFSAJ_Release_Component__c, IFSummary, IFSAJ_Release_Environment__c, IFSAJ_Release_Component_Environment__c, IFSObject, IFUser } from './analyze_object_definition';
+import { Connection, Org, SfdxError } from '@salesforce/core';
+import { IFJob, IFProcessResult, IFQuery, IFRecordType, IFSAJ_Analyze_Result__c, IFSAJ_Release__c, IFSAJ_Release_Component__c, IFSAJ_Release_Component_Environment__c, IFSAJ_Release_Environment__c, IFSummary, IFUser } from './analyze_object_definition';
 import JobResultTemplate1 from './analyze_result_template1';
 import JobResultTemplate2 from './analyze_result_template2';
-import { fnBuildSoql, fnResultErrorMsg, fnResultSuccess, fnGetAllId } from './analyze_util';
-import { UX, SfdxCommand, flags } from '@salesforce/command';
+import { fnBuildSoql, fnResultErrorMsg, fnResultSuccess } from './analyze_util';
 
 enum ResultTemplate {
     releasecomponent,
@@ -48,6 +47,7 @@ class DoaspasShared {
     public static build: IFSAJ_Release__c;
     public static buildcompenv: IFSAJ_Release_Component_Environment__c[];
     public static buildcomp: IFSAJ_Release_Component__c[];
+    public static standardObject: string[] = new Array();
     protected conn: Connection;
     protected target: string;
     protected buildRef: string;
@@ -62,8 +62,17 @@ class DoaspasShared {
 
     public async Init(): Promise<string> {
         DoaspasShared.acCon = this.conn;
-        const user = await this.conn.query<IFUser>('select id from user where username = ' + '\'' +  this.conn.getUsername() + '\'')
+        const user = await this.conn.query<IFUser>('select id from user where username = ' + '\'' +  this.conn.getUsername() + '\'');
         DoaspasShared.user = user.records[0];
+
+        // ### Retrieve the list of standard objects for the org
+        const describe = await this.conn.describeGlobal();
+        for (const f of describe['sobjects']) {
+            if (!f['custom'] && !f['name'].includes('__')) {
+                DoaspasShared.standardObject.push(f['name']);
+            }
+        }
+
         return await this.SetRunMode();
     }
 
@@ -84,7 +93,7 @@ class DoaspasShared {
 
             const q: IFQuery = {conn: this.conn,
                                 field: ['Id', 'SAJ_Release__r.Name', 'SAJ_Environment__r.SAJ_Username__c'],
-                                object: 'SAJ_Release_Environment__c', 
+                                object: 'SAJ_Release_Environment__c',
                                 where: 'Id = ' + '\'' + this.buildEnvId + '\' limit 1'};
             const qr = await this.conn.query<IFSAJ_Release_Environment__c>(await fnBuildSoql(q));
 

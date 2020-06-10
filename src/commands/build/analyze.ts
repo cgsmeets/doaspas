@@ -1,5 +1,5 @@
 import { flags, SfdxCommand } from '@salesforce/command';
-import { Messages, SfdxError } from '@salesforce/core';
+import { Messages } from '@salesforce/core';
 import { AnyJson } from '@salesforce/ts-types';
 import { DoaspasShared } from '../../lib/analyze_definition';
 import { jobmap } from '../../lib/analyze_job_mapping';
